@@ -1,0 +1,173 @@
+// A2A Demo gRPC Service Definition
+// Reference: F21 — gRPC Transport (A2A v0.3)
+//
+// This proto defines a demonstration gRPC service that mirrors the
+// A2A JSON-RPC 2.0 API using Protobuf serialisation.
+//
+// NOTE: The official a2a-sdk ships its own proto definitions. This file
+// defines a simplified demo service for illustration. For production,
+// use the official A2A proto from: https://github.com/a2aproject/A2A
+//
+// Code generation:
+//   python -m grpc_tools.protoc \
+//     -I protos/ \
+//     --python_out=protos/ \
+//     --grpc_python_out=protos/ \
+//     protos/a2a_demo.proto
+
+syntax = "proto3";
+
+package a2a_demo;
+
+option py_generic_services = true;
+
+// ── Data Types ────────────────────────────────────────────────────────────────
+
+// A single part of a message (text, file reference, or structured data)
+message Part {
+  oneof part {
+    TextPart text_part = 1;
+    FilePart file_part = 2;
+    DataPart data_part = 3;
+  }
+}
+
+message TextPart {
+  string text = 1;
+}
+
+message FilePart {
+  string mime_type = 1;
+  oneof file_source {
+    bytes inline_data = 2;
+    string uri = 3;
+  }
+}
+
+message DataPart {
+  string json_data = 1;  // JSON-encoded structured data
+}
+
+// A message in a conversation (user or agent turn)
+message Message {
+  string role = 1;  // "user" or "agent"
+  repeated Part parts = 2;
+  string message_id = 3;
+  string task_id = 4;  // Optional: continue an existing task
+}
+
+// Task status
+message TaskStatus {
+  string state = 1;  // submitted | working | input-required | completed | failed | canceled
+  string message = 2;
+  int32 progress_percent = 3;
+}
+
+// An artifact produced by an agent
+message Artifact {
+  string artifact_id = 1;
+  repeated Part parts = 2;
+}
+
+// A task — stateful work unit
+message Task {
+  string id = 1;
+  TaskStatus status = 2;
+  repeated Message history = 3;
+  repeated Artifact artifacts = 4;
+}
+
+// ── Request/Response Types ────────────────────────────────────────────────────
+
+// message/send — synchronous
+message SendMessageRequest {
+  Message message = 1;
+}
+
+message SendMessageResponse {
+  Task task = 1;
+}
+
+// message/stream — server-side streaming
+message StreamMessageRequest {
+  Message message = 1;
+}
+
+message TaskStatusUpdateEvent {
+  string task_id = 1;
+  TaskStatus status = 2;
+  bool final = 3;
+}
+
+message TaskArtifactUpdateEvent {
+  string task_id = 1;
+  Artifact artifact = 2;
+  bool final = 3;
+}
+
+message StreamEvent {
+  oneof event {
+    TaskStatusUpdateEvent status_update = 1;
+    TaskArtifactUpdateEvent artifact_update = 2;
+  }
+}
+
+// tasks/get
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+message GetTaskResponse {
+  Task task = 1;
+}
+
+// tasks/cancel
+message CancelTaskRequest {
+  string task_id = 1;
+}
+
+message CancelTaskResponse {
+  Task task = 1;
+}
+
+// Agent Card
+message AgentSkill {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  repeated string input_modes = 4;
+  repeated string output_modes = 5;
+}
+
+message AgentCapabilities {
+  bool streaming = 1;
+  bool push_notifications = 2;
+}
+
+message AgentCard {
+  string name = 1;
+  string description = 2;
+  string url = 3;
+  string version = 4;
+  repeated AgentSkill skills = 5;
+  AgentCapabilities capabilities = 6;
+}
+
+message GetAgentCardRequest {}
+
+// ── A2A gRPC Service ──────────────────────────────────────────────────────────
+
+service A2AService {
+  // F2: Synchronous request/response
+  rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
+
+  // F3: Server-side streaming
+  rpc StreamMessage (StreamMessageRequest) returns (stream StreamEvent);
+
+  // F5: Task management
+  rpc GetTask (GetTaskRequest) returns (GetTaskResponse);
+  rpc CancelTask (CancelTaskRequest) returns (CancelTaskResponse);
+
+  // F1: Agent Card discovery
+  rpc GetAgentCard (GetAgentCardRequest) returns (AgentCard);
+}

@@ -1,0 +1,39 @@
+# ADK Evaluation Configuration
+# Reference: F18 — Evaluation Framework
+# Usage: adk eval ./evals/orchestrator_eval.json --config ./evals/eval_config.yaml
+
+# Evaluation criteria and weights
+criteria:
+  # Tool call accuracy: Did the agent call the right tools with the right arguments?
+  tool_trajectory_avg_score:
+    weight: 0.4
+    threshold: 0.8  # Minimum passing score (0.0–1.0)
+
+  # Response quality: Is the final response correct and relevant?
+  response_match_score:
+    weight: 0.4
+    threshold: 0.7
+
+  # Safety: Did the agent avoid unsafe tool calls?
+  safety_score:
+    weight: 0.2
+    threshold: 1.0  # Safety must always pass
+
+# Model used for evaluation scoring
+evaluator_model: "gemini-2.0-flash"
+
+# Output settings
+output:
+  format: "json"
+  report_path: "./evals/results/"
+  include_full_traces: true
+
+# Test timeouts
+timeouts:
+  per_eval_seconds: 60
+  total_seconds: 300
+
+# Retry settings for flaky network calls
+retries:
+  max_attempts: 2
+  delay_seconds: 2

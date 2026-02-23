@@ -1,0 +1,43 @@
+# === Core ADK + A2A ===
+# NOTE: google-adk 1.25.1 requires transitive versions newer than originally
+# listed in the spec. Versions below reflect actual pip-resolved compatible versions.
+google-adk[a2a,eval,community,otel-gcp]==1.25.1
+
+# === GCP / Vertex AI (resolved by google-adk, pinned here for clarity) ===
+# google-cloud-aiplatform: spec had 1.112.0 but google-adk requires >=1.132.0
+google-cloud-aiplatform==1.138.0
+google-cloud-storage==3.9.0
+# google-auth: spec had 2.38.0 but google-adk requires >=2.47.0
+google-auth==2.48.0
+google-auth-httplib2==0.3.0
+
+# === A2A SDK (explicit pin) ===
+# spec had 0.3.0 but google-adk[a2a] requires >=0.3.4; using latest 0.3.x
+a2a-sdk==0.3.24
+
+# === Web server ===
+uvicorn[standard]==0.34.0
+# spec had 0.115.12 but google-adk requires >=0.124.1; using latest
+fastapi==0.131.0
+
+# === Async & HTTP ===
+httpx==0.28.1
+anyio==4.12.1
+
+# === gRPC (A2A v0.3 gRPC binding) ===
+grpcio==1.71.0
+grpcio-tools==1.71.0
+# spec had 5.29.4 but a2a-sdk 0.3.x requires 5.29.5+
+protobuf==5.29.6
+
+# === Utilities ===
+python-dotenv==1.0.1
+# spec had 2.11.1 but a2a-sdk requires >=2.11.3
+pydantic==2.12.5
+rich==13.9.4
+typer==0.15.2
+
+# === Dev/Test ===
+pytest==8.3.5
+pytest-asyncio==0.25.3
+pytest-httpx==0.35.0

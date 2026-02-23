@@ -1,0 +1,72 @@
+# ─── Python ────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+MANIFEST
+
+# ─── Virtual environments ──────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.env.bak
+
+# ─── Environment variables (never commit secrets) ──────
+.env
+*.env
+!.env.example
+
+# ─── Testing ───────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.log
+
+# ─── IDEs ──────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# ─── GCP / Google Cloud ────────────────────────────────
+*.json
+!package.json
+# (exclude service account keys — use ADC instead)
+gcloud-service-key.json
+service_account*.json
+credentials*.json
+
+# ─── gRPC / Protobuf generated files ──────────────────
+*_pb2.py
+*_pb2_grpc.py
+protos/generated/
+
+# ─── Jupyter ───────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ─── Build artifacts ───────────────────────────────────
+*.pyc
+*.pyo
+.mypy_cache/
+.ruff_cache/
+
+# ─── Distribution / packaging ──────────────────────────
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
