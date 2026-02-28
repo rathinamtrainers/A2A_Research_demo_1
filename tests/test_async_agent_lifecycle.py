@@ -22,13 +22,18 @@ def client():
 
 @pytest.fixture(autouse=True)
 def clear_task_store():
-    """Isolate each test by clearing module-level task/webhook stores."""
+    """Isolate each test by clearing module-level task/webhook/running stores."""
     from async_agent import agent as agent_module
     agent_module._task_store.clear()
     agent_module._webhook_store.clear()
+    agent_module._running_tasks.clear()
     yield
+    # Cancel any running tasks before clearing
+    for task in agent_module._running_tasks.values():
+        task.cancel()
     agent_module._task_store.clear()
     agent_module._webhook_store.clear()
+    agent_module._running_tasks.clear()
 
 
 def _send_task(client, msg: str = "Hello") -> str:

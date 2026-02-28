@@ -12,6 +12,7 @@ Usage::
 """
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -129,3 +130,7 @@ class Settings:
 
 # Singleton instance used across the project
 settings = Settings()
+
+# Validate at startup (skip during test collection to avoid env coupling)
+if "pytest" not in sys.modules:
+    settings.validate()

@@ -8,7 +8,7 @@ Reference: F12 — Function Tools; F1, F2 — Weather Agent.
 from __future__ import annotations
 
 import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -116,10 +116,11 @@ class TestAggregateForecast:
 class TestMockWeatherData:
     """Mock weather data returns all required fields with correct types."""
 
-    def test_all_required_fields_present(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_all_required_fields_present(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_weather("London")
+        result = await tools_mod.get_weather("London")
         required = [
             "city", "country", "temperature_c", "temperature_f",
             "feels_like_c", "humidity_percent", "wind_speed_ms",
@@ -128,91 +129,103 @@ class TestMockWeatherData:
         for field in required:
             assert field in result, f"Missing field: {field}"
 
-    def test_temperature_f_is_correct_conversion(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_temperature_f_is_correct_conversion(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_weather("Anywhere")
+        result = await tools_mod.get_weather("Anywhere")
         expected_f = round(result["temperature_c"] * 9 / 5 + 32, 1)
         assert result["temperature_f"] == expected_f
 
-    def test_city_name_is_title_cased(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_city_name_is_title_cased(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_weather("new york city")
+        result = await tools_mod.get_weather("new york city")
         assert result["city"] == "New York City"
 
-    def test_mock_note_indicates_mock_data(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_mock_note_indicates_mock_data(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_weather("London")
+        result = await tools_mod.get_weather("London")
         assert "MOCK DATA" in result.get("note", "")
 
-    def test_numeric_fields_are_numeric(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_numeric_fields_are_numeric(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_weather("TestCity")
+        result = await tools_mod.get_weather("TestCity")
         assert isinstance(result["temperature_c"], (int, float))
         assert isinstance(result["temperature_f"], (int, float))
         assert isinstance(result["humidity_percent"], (int, float))
 
-    def test_humidity_in_reasonable_range(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_humidity_in_reasonable_range(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_weather("Anywhere")
+        result = await tools_mod.get_weather("Anywhere")
         assert 0 <= result["humidity_percent"] <= 100
 
 
 class TestMockForecastData:
     """Mock forecast returns valid date-ordered entries."""
 
-    def test_forecast_has_city_and_forecast_list(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_forecast_has_city_and_forecast_list(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_forecast("Tokyo", days=3)
+        result = await tools_mod.get_forecast("Tokyo", days=3)
         assert "city" in result
         assert "forecast" in result
 
-    def test_forecast_city_is_title_cased(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_forecast_city_is_title_cased(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_forecast("san francisco", days=2)
+        result = await tools_mod.get_forecast("san francisco", days=2)
         assert result["city"] == "San Francisco"
 
-    def test_forecast_length_matches_requested_days(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_forecast_length_matches_requested_days(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
         for days in (1, 3, 5):
-            result = tools_mod.get_forecast("London", days=days)
+            result = await tools_mod.get_forecast("London", days=days)
             assert len(result["forecast"]) == days
 
-    def test_forecast_capped_at_five_days(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_forecast_capped_at_five_days(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_forecast("Berlin", days=10)
+        result = await tools_mod.get_forecast("Berlin", days=10)
         assert len(result["forecast"]) <= 5
 
-    def test_forecast_dates_are_sequential(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_forecast_dates_are_sequential(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_forecast("Paris", days=4)
+        result = await tools_mod.get_forecast("Paris", days=4)
         dates = [datetime.date.fromisoformat(d["date"]) for d in result["forecast"]]
         for i in range(1, len(dates)):
             assert dates[i] > dates[i - 1], "Forecast dates must be in ascending order"
 
-    def test_forecast_entries_have_all_required_fields(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_forecast_entries_have_all_required_fields(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_forecast("Rome", days=2)
+        result = await tools_mod.get_forecast("Rome", days=2)
         for entry in result["forecast"]:
             assert "date" in entry
             assert "high_c" in entry
             assert "low_c" in entry
             assert "conditions" in entry
 
-    def test_forecast_high_is_greater_or_equal_to_low(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_forecast_high_is_greater_or_equal_to_low(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "")
-        result = tools_mod.get_forecast("Madrid", days=3)
+        result = await tools_mod.get_forecast("Madrid", days=3)
         for entry in result["forecast"]:
             assert entry["high_c"] >= entry["low_c"]
 
@@ -223,20 +236,27 @@ class TestMockForecastData:
 class TestOWMApiErrorHandling:
     """get_weather handles HTTP errors and unexpected responses gracefully."""
 
-    def test_city_not_found_404_returns_error_dict(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_city_not_found_404_returns_error_dict(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "fake-key")
 
         mock_resp = MagicMock()
         mock_resp.status_code = 404
-        with patch("httpx.Client") as mock_client_class:
-            mock_client_class.return_value.__enter__.return_value.get.return_value = mock_resp
-            result = tools_mod.get_weather("NonexistentCity999")
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await tools_mod.get_weather("NonexistentCity999")
 
         assert "error" in result
         assert "NonexistentCity999" in result["error"]
 
-    def test_successful_response_parsed_to_correct_fields(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_successful_response_parsed_to_correct_fields(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "fake-key")
 
@@ -251,9 +271,13 @@ class TestOWMApiErrorHandling:
         }
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("httpx.Client") as mock_client_class:
-            mock_client_class.return_value.__enter__.return_value.get.return_value = mock_resp
-            result = tools_mod.get_weather("Paris")
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await tools_mod.get_weather("Paris")
 
         assert result["city"] == "Paris"
         assert result["country"] == "FR"
@@ -262,19 +286,23 @@ class TestOWMApiErrorHandling:
         assert result["conditions"] == "Clouds"
         assert result["humidity_percent"] == 72
 
-    def test_network_error_returns_error_dict(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_network_error_returns_error_dict(self, monkeypatch):
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "fake-key")
 
-        with patch("httpx.Client") as mock_client_class:
-            mock_client_class.return_value.__enter__.return_value.get.side_effect = (
-                httpx.RequestError("Connection timeout")
-            )
-            result = tools_mod.get_weather("London")
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=httpx.RequestError("Connection timeout"))
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await tools_mod.get_weather("London")
 
         assert "error" in result
 
-    def test_malformed_api_response_returns_error_dict(self, monkeypatch):
+    @pytest.mark.asyncio
+    async def test_malformed_api_response_returns_error_dict(self, monkeypatch):
         """A response missing expected keys should return an error dict, not raise."""
         import weather_agent.tools as tools_mod
         monkeypatch.setattr(tools_mod.settings, "OPENWEATHERMAP_API_KEY", "fake-key")
@@ -284,8 +312,12 @@ class TestOWMApiErrorHandling:
         mock_resp.json.return_value = {"unexpected": "structure"}
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("httpx.Client") as mock_client_class:
-            mock_client_class.return_value.__enter__.return_value.get.return_value = mock_resp
-            result = tools_mod.get_weather("London")
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await tools_mod.get_weather("London")
 
         assert "error" in result

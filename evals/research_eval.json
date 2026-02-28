@@ -1,0 +1,75 @@
+{
+  "name": "research_agent_eval",
+  "description": "Evaluation dataset for the research_agent. Tests ambiguous query handling (input-required), research tool use, and multi-source synthesis.",
+  "eval_set_id": "research_eval_v1",
+  "evals": [
+    {
+      "name": "ambiguous_query_input_required",
+      "description": "An ambiguous query without a specific topic should trigger input-required",
+      "conversation": [
+        {
+          "invocation_id": "r_inv_001",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Research AI."}]
+          },
+          "expected_tool_use": [],
+          "expected_intermediate_agent_responses": [],
+          "reference": "The research_agent should ask for clarification (input-required) when the query 'Research AI' is too vague — no specific focus area is given."
+        }
+      ]
+    },
+    {
+      "name": "specific_research_uses_search_tool",
+      "description": "A specific research query should trigger google_search tool use",
+      "conversation": [
+        {
+          "invocation_id": "r_inv_002",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Research the current state of large language model benchmarks in 2025."}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "google_search",
+              "tool_input": {}
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "A specific research query about LLM benchmarks should invoke the google_search tool."
+        }
+      ]
+    },
+    {
+      "name": "multi_turn_clarification_then_research",
+      "description": "After clarification, the agent should proceed with research",
+      "conversation": [
+        {
+          "invocation_id": "r_inv_003a",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Research renewable energy."}]
+          },
+          "expected_tool_use": [],
+          "expected_intermediate_agent_responses": [],
+          "reference": "Ambiguous query should prompt for clarification."
+        },
+        {
+          "invocation_id": "r_inv_003b",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Focus on solar panel efficiency improvements in the last 2 years."}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "google_search",
+              "tool_input": {}
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "With a specific topic provided, the agent should now search and produce a structured report."
+        }
+      ]
+    }
+  ]
+}

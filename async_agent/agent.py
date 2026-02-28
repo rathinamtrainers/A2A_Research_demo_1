@@ -31,7 +31,7 @@ from typing import Any, Optional
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from a2a.types import (
     AgentCapabilities,
@@ -100,7 +100,7 @@ async def get_agent_card() -> dict:
 
 
 @app.post("/")
-async def handle_json_rpc(request: Request, background_tasks: BackgroundTasks) -> JSONResponse:
+async def handle_json_rpc(request: Request) -> JSONResponse:
     """
     Main JSON-RPC 2.0 dispatch endpoint.
 
@@ -115,7 +115,6 @@ async def handle_json_rpc(request: Request, background_tasks: BackgroundTasks) -
 
     Args:
         request: Incoming FastAPI request.
-        background_tasks: FastAPI background task runner.
 
     Returns:
         JSON-RPC 2.0 response dict.
@@ -127,10 +126,10 @@ async def handle_json_rpc(request: Request, background_tasks: BackgroundTasks) -
 
     try:
         if method == "message/send":
-            result = await _handle_message_send(params, background_tasks)
+            result = await _handle_message_send(params)
         elif method == "message/stream":
             # SSE streaming — handled separately, returns StreamingResponse
-            return await _handle_message_stream(rpc_id, params, background_tasks)
+            return await _handle_message_stream(rpc_id, params)
         elif method == "tasks/get":
             result = _handle_tasks_get(params)
         elif method == "tasks/cancel":
@@ -163,7 +162,7 @@ async def handle_json_rpc(request: Request, background_tasks: BackgroundTasks) -
 
 # ── JSON-RPC method handlers ──────────────────────────────────────────────────
 
-async def _handle_message_send(params: dict, background_tasks: BackgroundTasks) -> dict:
+async def _handle_message_send(params: dict) -> dict:
     """
     Create a new task and start executing it in the background.
 
@@ -172,7 +171,6 @@ async def _handle_message_send(params: dict, background_tasks: BackgroundTasks) 
 
     Args:
         params: JSON-RPC params containing the user message.
-        background_tasks: FastAPI background task runner for async execution.
 
     Returns:
         A Task dict with ``id`` and initial ``status = "submitted"``.
@@ -186,14 +184,14 @@ async def _handle_message_send(params: dict, background_tasks: BackgroundTasks) 
     }
     _task_store[task_id] = task
 
-    # Schedule background work
-    background_tasks.add_task(_execute_long_task, task_id)
+    # Schedule background work and store the asyncio.Task for cancellation support
+    _running_tasks[task_id] = asyncio.create_task(_execute_long_task(task_id))
 
     return task
 
 
 async def _handle_message_stream(
-    rpc_id: Any, params: dict, background_tasks: BackgroundTasks
+    rpc_id: Any, params: dict
 ) -> StreamingResponse:
     """
     Create a task and stream progress events via Server-Sent Events (F3).
@@ -204,7 +202,6 @@ async def _handle_message_stream(
     Args:
         rpc_id: JSON-RPC request ID.
         params: JSON-RPC params containing the user message.
-        background_tasks: FastAPI background task runner.
 
     Returns:
         A ``StreamingResponse`` that emits SSE ``data:`` lines.
@@ -222,8 +219,8 @@ async def _handle_message_stream(
     queue: asyncio.Queue = asyncio.Queue()
     _sse_queues.setdefault(task_id, []).append(queue)
 
-    # Start the background task
-    background_tasks.add_task(_execute_long_task, task_id)
+    # Start the background task and store for cancellation support
+    _running_tasks[task_id] = asyncio.create_task(_execute_long_task(task_id))
 
     async def _event_generator():
         """Yield SSE data lines until a terminal event is received."""

@@ -6,11 +6,9 @@ Demonstrates:
   F6  — Multi-turn: loop continues requesting input if needed
   F10 — LoopAgent with max_iterations exit condition
 
-The loop agent polls the async_agent's ``tasks/get`` endpoint every
-5 seconds (up to 10 iterations) until the task is in a terminal state.
-
-It also demonstrates F6 (input-required) by pausing when the task enters
-``input-required`` state and asking the user for more information.
+The loop agent delegates to the async_agent via RemoteA2aAgent sub-agents:
+  1. ``start_task_agent`` sends a message/send request to start a task
+  2. ``poll_agent`` sends tasks/get requests to check progress
 
 Usage::
 
@@ -20,19 +18,54 @@ Usage::
 from __future__ import annotations
 
 from dotenv import load_dotenv
-from google.adk.agents import LlmAgent, LoopAgent
+from google.adk.agents import LlmAgent, LoopAgent, SequentialAgent
+from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
 
 from shared.config import settings
 
 load_dotenv()
 
-# ── Polling sub-agent ─────────────────────────────────────────────────────────
+# ── Remote A2A sub-agents for communicating with async_agent ─────────────────
+
+_async_agent_start = RemoteA2aAgent(
+    name="async_agent_start",
+    description="Sends a message to the async_agent to start a long-running task.",
+    agent_card=f"{settings.ASYNC_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}",
+)
+
+_async_agent_poll = RemoteA2aAgent(
+    name="async_agent_poll",
+    description="Polls the async_agent for task status updates.",
+    agent_card=f"{settings.ASYNC_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}",
+)
+
+# ── Start task sub-agent ─────────────────────────────────────────────────────
+
+_START_TASK_INSTRUCTION = """
+You are starting a long-running task on the async_agent.
+
+1. Delegate to the async_agent_start sub-agent with the message:
+   "Run a 20-second simulation task."
+2. Extract the task_id from the response.
+3. Store the task_id in your response for the polling loop to use.
+"""
+
+start_task_agent = LlmAgent(
+    model=settings.GEMINI_MODEL,
+    name="start_task_agent",
+    description="Starts a long-running task on the async_agent.",
+    instruction=_START_TASK_INSTRUCTION,
+    sub_agents=[_async_agent_start],
+    output_key="task_id",
+)
+
+# ── Polling sub-agent ────────────────────────────────────────────────────────
 
 _POLL_INSTRUCTION = """
 You are a task poller. You have been given a task_id to monitor.
 
-Use the provided task_id to call the async_agent's tasks/get endpoint:
-  POST {async_agent_url}/ with method "tasks/get" and params {{"id": task_id}}
+Delegate to the async_agent_poll sub-agent to check the task status.
+Ask it: "Check the status of my task."
 
 Interpret the response:
 - If status.state is "completed": respond with "DONE: <result>"
@@ -42,19 +75,18 @@ Interpret the response:
   (the LoopAgent will pause and ask the user for input)
 - If status.state is "working" or "submitted": respond with "WORKING: <progress>"
   (the LoopAgent will continue polling)
-
-async_agent URL: {async_agent_url}
-""".format(async_agent_url=settings.ASYNC_AGENT_URL)
+"""
 
 poll_agent = LlmAgent(
     model=settings.GEMINI_MODEL,
     name="poll_agent",
     description="Polls async_agent for task status updates.",
     instruction=_POLL_INSTRUCTION,
+    sub_agents=[_async_agent_poll],
     output_key="poll_result",
 )
 
-# ── Exit condition checker ────────────────────────────────────────────────────
+# ── Exit condition checker ───────────────────────────────────────────────────
 
 _EXIT_CHECK_INSTRUCTION = """
 You are an exit condition checker for a polling loop.
@@ -74,7 +106,7 @@ exit_check_agent = LlmAgent(
     output_key="should_exit",
 )
 
-# ── LoopAgent (F10) ───────────────────────────────────────────────────────────
+# ── LoopAgent (F10) ─────────────────────────────────────────────────────────
 
 polling_loop = LoopAgent(
     name="polling_loop",
@@ -83,28 +115,7 @@ polling_loop = LoopAgent(
     max_iterations=10,
 )
 
-# ── Root: start task then poll ────────────────────────────────────────────────
-
-_START_TASK_INSTRUCTION = """
-You are starting a long-running task on the async_agent.
-
-1. Send a message/send request to {url}/ to start a new task.
-   The message should be: "Run a 20-second simulation task."
-2. Extract the task_id from the response.
-3. Store the task_id in state key "task_id" for the polling loop.
-
-async_agent URL: {url}
-""".format(url=settings.ASYNC_AGENT_URL)
-
-start_task_agent = LlmAgent(
-    model=settings.GEMINI_MODEL,
-    name="start_task_agent",
-    description="Starts a long-running task on the async_agent.",
-    instruction=_START_TASK_INSTRUCTION,
-    output_key="task_id",
-)
-
-from google.adk.agents import SequentialAgent
+# ── Root: start task then poll ───────────────────────────────────────────────
 
 root_agent = SequentialAgent(
     name="loop_agent",

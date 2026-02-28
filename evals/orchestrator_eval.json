@@ -1,0 +1,117 @@
+{
+  "name": "orchestrator_eval",
+  "description": "Multi-turn evaluation dataset for the orchestrator agent. Tests routing accuracy, tool use, and response quality across all specialist agent types.",
+  "eval_set_id": "orchestrator_eval_v1",
+  "evals": [
+    {
+      "name": "weather_routing_basic",
+      "description": "Orchestrator should route weather query to weather_agent",
+      "conversation": [
+        {
+          "invocation_id": "inv_001",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "What is the weather in London today?"}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "weather_agent",
+              "tool_input": {}
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "The orchestrator should delegate to weather_agent for weather queries."
+        }
+      ]
+    },
+    {
+      "name": "research_routing_basic",
+      "description": "Orchestrator should route research query to research_agent",
+      "conversation": [
+        {
+          "invocation_id": "inv_002",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Research the latest developments in quantum computing."}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "research_agent",
+              "tool_input": {}
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "The orchestrator should delegate to research_agent for research queries."
+        }
+      ]
+    },
+    {
+      "name": "code_routing_basic",
+      "description": "Orchestrator should route code execution to code_agent",
+      "conversation": [
+        {
+          "invocation_id": "inv_003",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Write and execute Python code to calculate the first 10 Fibonacci numbers."}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "code_agent",
+              "tool_input": {}
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "The orchestrator should delegate to code_agent for code execution tasks."
+        }
+      ]
+    },
+    {
+      "name": "agent_status_tool_use",
+      "description": "Orchestrator should use get_agent_status tool when asked about agent availability",
+      "conversation": [
+        {
+          "invocation_id": "inv_004",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Is the weather agent currently running?"}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "get_agent_status",
+              "tool_input": {"agent_name": "weather_agent"}
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "The orchestrator should use get_agent_status to check agent availability."
+        }
+      ]
+    },
+    {
+      "name": "multi_turn_routing",
+      "description": "Multi-turn: weather question followed by research question",
+      "conversation": [
+        {
+          "invocation_id": "inv_005a",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "What's the weather in Tokyo?"}]
+          },
+          "expected_tool_use": [{"tool_name": "weather_agent", "tool_input": {}}],
+          "expected_intermediate_agent_responses": [],
+          "reference": "Routes weather query to weather_agent."
+        },
+        {
+          "invocation_id": "inv_005b",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Now research the best time of year to visit Tokyo."}]
+          },
+          "expected_tool_use": [{"tool_name": "research_agent", "tool_input": {}}],
+          "expected_intermediate_agent_responses": [],
+          "reference": "Routes research query to research_agent in the same session."
+        }
+      ]
+    }
+  ]
+}

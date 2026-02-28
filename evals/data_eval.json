@@ -1,0 +1,72 @@
+{
+  "name": "data_agent_eval",
+  "description": "Evaluation dataset for the data_agent. Tests CSV generation accuracy, statistics computation, and artifact creation.",
+  "eval_set_id": "data_eval_v1",
+  "evals": [
+    {
+      "name": "csv_generation_basic",
+      "description": "Agent should generate a valid CSV artifact when given structured data",
+      "conversation": [
+        {
+          "invocation_id": "d_inv_001",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Generate a CSV report titled 'Sales' with columns Name, Revenue, Month and 3 rows: Alice 5000 January, Bob 7500 February, Carol 6200 March."}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "generate_csv_report",
+              "tool_input": {
+                "title": "Sales"
+              }
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "The agent should call generate_csv_report and return a CSV artifact with the correct data."
+        }
+      ]
+    },
+    {
+      "name": "statistics_computation",
+      "description": "Agent should compute statistics when given a list of numbers",
+      "conversation": [
+        {
+          "invocation_id": "d_inv_002",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Compute descriptive statistics for this dataset: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]"}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "compute_statistics",
+              "tool_input": {}
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "Agent should return mean=55, median=55, min=10, max=100, count=10."
+        }
+      ]
+    },
+    {
+      "name": "csv_parsing_and_stats",
+      "description": "Agent should parse CSV input and compute statistics on a numeric column",
+      "conversation": [
+        {
+          "invocation_id": "d_inv_003",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Parse this CSV and compute statistics on the score column:\nname,score\nAlice,85\nBob,92\nCarol,78\nDave,95\nEve,88"}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "parse_csv_data",
+              "tool_input": {}
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "Agent should parse the CSV, extract score values [85,92,78,95,88], and compute statistics (mean=87.6)."
+        }
+      ]
+    }
+  ]
+}

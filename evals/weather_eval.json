@@ -1,0 +1,70 @@
+{
+  "name": "weather_eval",
+  "description": "Evaluation dataset for the weather_agent. Tests tool use accuracy and response completeness.",
+  "eval_set_id": "weather_eval_v1",
+  "evals": [
+    {
+      "name": "current_weather_single_city",
+      "description": "Agent should call get_weather for a single city",
+      "conversation": [
+        {
+          "invocation_id": "w_inv_001",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "What is the weather in Paris?"}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "get_weather",
+              "tool_input": {"city": "Paris"}
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "Agent must call get_weather with city='Paris' and return temperature and conditions."
+        }
+      ]
+    },
+    {
+      "name": "forecast_request",
+      "description": "Agent should call get_forecast when asked for a forecast",
+      "conversation": [
+        {
+          "invocation_id": "w_inv_002",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "What's the 5-day forecast for New York?"}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "get_forecast",
+              "tool_input": {"city": "New York", "days": 5}
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "Agent must call get_forecast with city='New York' and days=5."
+        }
+      ]
+    },
+    {
+      "name": "temperature_units",
+      "description": "Response should include both Celsius and Fahrenheit",
+      "conversation": [
+        {
+          "invocation_id": "w_inv_003",
+          "user_content": {
+            "role": "user",
+            "parts": [{"kind": "text", "text": "What's the temperature in Berlin?"}]
+          },
+          "expected_tool_use": [
+            {
+              "tool_name": "get_weather",
+              "tool_input": {"city": "Berlin"}
+            }
+          ],
+          "expected_intermediate_agent_responses": [],
+          "reference": "Response must include temperature in both °C and °F as per agent instructions."
+        }
+      ]
+    }
+  ]
+}

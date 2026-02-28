@@ -16,7 +16,7 @@ Usage::
 from __future__ import annotations
 
 from dotenv import load_dotenv
-from google.adk.agents import LlmAgent, ParallelAgent
+from google.adk.agents import LlmAgent, ParallelAgent, SequentialAgent
 from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
 
 from shared.config import settings
@@ -85,8 +85,6 @@ parallel_weather = ParallelAgent(
 
 # The root agent coordinates the parallel fetch then the aggregation
 # Using a SequentialAgent wrapper: parallel_weather → aggregator
-from google.adk.agents import SequentialAgent
-
 root_agent = SequentialAgent(
     name="parallel_agent",
     description=(

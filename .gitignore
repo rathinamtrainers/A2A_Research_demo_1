@@ -46,6 +46,7 @@ htmlcov/
 # ─── GCP / Google Cloud ────────────────────────────────
 *.json
 !package.json
+!evals/*.json
 # (exclude service account keys — use ADC instead)
 gcloud-service-key.json
 service_account*.json

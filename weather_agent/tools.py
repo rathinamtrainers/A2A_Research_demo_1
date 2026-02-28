@@ -20,7 +20,7 @@ from shared.config import settings
 _OWM_BASE = "https://api.openweathermap.org/data/2.5"
 
 
-def get_weather(city: str) -> dict:
+async def get_weather(city: str) -> dict:
     """
     Return current weather conditions for a city.
 
@@ -41,8 +41,8 @@ def get_weather(city: str) -> dict:
         return _mock_weather(city)
 
     try:
-        with httpx.Client(timeout=10.0) as client:
-            resp = client.get(
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
                 f"{_OWM_BASE}/weather",
                 params={
                     "q": city,
@@ -73,7 +73,7 @@ def get_weather(city: str) -> dict:
         return {"error": f"Unexpected API response structure: {exc}"}
 
 
-def get_forecast(city: str, days: int = 5) -> dict:
+async def get_forecast(city: str, days: int = 5) -> dict:
     """
     Return a multi-day weather forecast for a city.
 
@@ -94,8 +94,8 @@ def get_forecast(city: str, days: int = 5) -> dict:
         return _mock_forecast(city, days)
 
     try:
-        with httpx.Client(timeout=10.0) as client:
-            resp = client.get(
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
                 f"{_OWM_BASE}/forecast",
                 params={
                     "q": city,
