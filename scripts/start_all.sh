@@ -48,25 +48,25 @@ start_server() {
 # Change to project root
 cd "${PROJECT_ROOT}"
 
-# Start all A2A agent servers
+# Start all A2A agent servers (using uvicorn with each agent's to_a2a() app)
 start_server "weather_agent" \
-    ".venv/bin/adk api_server --a2a --port 8001 ./weather_agent/"
+    ".venv/bin/uvicorn weather_agent.agent:app --host 0.0.0.0 --port 8001"
 
 start_server "research_agent" \
-    ".venv/bin/adk api_server --a2a --port 8002 ./research_agent/"
+    ".venv/bin/uvicorn research_agent.agent:app --host 0.0.0.0 --port 8002"
 
 start_server "code_agent" \
-    ".venv/bin/adk api_server --a2a --port 8003 ./code_agent/"
+    ".venv/bin/uvicorn code_agent.agent:app --host 0.0.0.0 --port 8003"
 
 start_server "data_agent" \
-    ".venv/bin/adk api_server --a2a --port 8004 ./data_agent/"
+    ".venv/bin/uvicorn data_agent.agent:app --host 0.0.0.0 --port 8004"
 
 start_server "async_agent" \
-    ".venv/bin/uvicorn async_agent.agent:app --port 8005"
+    ".venv/bin/uvicorn async_agent.agent:app --host 0.0.0.0 --port 8005"
 
 # Start webhook receiver
 start_server "webhook_server" \
-    ".venv/bin/uvicorn webhook_server.main:app --port 9000"
+    ".venv/bin/uvicorn webhook_server.main:app --host 0.0.0.0 --port 9000"
 
 echo ""
 echo "=== All servers started ==="

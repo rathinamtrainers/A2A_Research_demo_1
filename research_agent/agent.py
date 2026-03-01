@@ -208,19 +208,18 @@ async def _bearer_auth_middleware(request: Request, call_next):
 
 
 # ── Compose final app with extra route (F7) ───────────────────────────────────
-# Wrap the a2a Starlette app in an outer Starlette that adds the extended card
-# route, then delegates everything else to the inner a2a app via Mount.
+# Add the extended card route directly to the a2a app, then add auth middleware.
+# NOTE: We add routes to _a2a_app directly instead of wrapping it in an outer
+# Starlette via Mount, because Starlette does not propagate startup events to
+# mounted sub-apps — and to_a2a() registers its A2A routes during startup.
 
-app = Starlette(
-    routes=[
-        Route(
-            "/agents/authenticatedExtendedCard",
-            _authenticated_extended_card,
-            methods=["GET"],
-        ),
-        Mount("/", app=_a2a_app),
-    ]
+_a2a_app.add_route(
+    "/agents/authenticatedExtendedCard",
+    _authenticated_extended_card,
+    methods=["GET"],
 )
+
+app = _a2a_app
 
 # Add Bearer auth middleware (F8) — added after construction so the middleware
 # stack is rebuilt on the next request, wrapping all routes.

@@ -99,7 +99,7 @@ def logging_callback_after_model(callback_context: Any, llm_response: Any) -> No
 
 
 def logging_callback_before_tool(
-    tool: Any, tool_args: dict, tool_context: Any
+    tool: Any, args: dict, tool_context: Any
 ) -> None:
     """
     Log every tool invocation before execution.
@@ -114,13 +114,13 @@ def logging_callback_before_tool(
     """
     tool_name = getattr(tool, "name", str(tool))
     console.print(
-        f"[bold yellow]⚙  TOOL CALL[/bold yellow] [{tool_name}] args={tool_args}"
+        f"[bold yellow]⚙  TOOL CALL[/bold yellow] [{tool_name}] args={args}"
     )
     return None
 
 
 def logging_callback_after_tool(
-    tool: Any, tool_args: dict, tool_context: Any, tool_response: dict
+    tool: Any, args: dict, tool_context: Any, tool_response: dict
 ) -> None:
     """
     Log every tool result after execution.
@@ -157,7 +157,7 @@ _DANGEROUS_PATTERNS: list[str] = [
 
 
 def guardrail_callback_before_tool(
-    tool: Any, tool_args: dict, tool_context: Any
+    tool: Any, args: dict, tool_context: Any
 ) -> Optional[dict]:
     """
     Block tool calls that contain dangerous code patterns (F17 — Safety).
@@ -168,14 +168,14 @@ def guardrail_callback_before_tool(
 
     Args:
         tool: The ADK ``BaseTool`` being called.
-        tool_args: Arguments provided by the LLM.
+        args: Arguments provided by the LLM.
         tool_context: ADK ``ToolContext``.
 
     Returns:
         An error dict if the call should be blocked, else ``None`` to
         allow normal execution.
     """
-    code_arg: str = tool_args.get("code", "")
+    code_arg: str = args.get("code", "")
     for pattern in _DANGEROUS_PATTERNS:
         if pattern in code_arg:
             console.print(
@@ -191,7 +191,7 @@ def guardrail_callback_before_tool(
 # ── Cache callback ────────────────────────────────────────────────────────────
 
 def cache_callback_before_tool(
-    tool: Any, tool_args: dict, tool_context: Any
+    tool: Any, args: dict, tool_context: Any
 ) -> Optional[dict]:
     """
     Return a cached result for repeated identical tool calls (F16 — Cache).
@@ -210,7 +210,7 @@ def cache_callback_before_tool(
     """
     tool_name = getattr(tool, "name", str(tool))
     try:
-        cache_key = f"{tool_name}:{sorted(tool_args.items())}"
+        cache_key = f"{tool_name}:{sorted(args.items())}"
     except TypeError:
         return None  # non-hashable args, skip cache
 
@@ -224,7 +224,7 @@ def cache_callback_before_tool(
 
 
 def cache_callback_after_tool(
-    tool: Any, tool_args: dict, tool_context: Any, tool_response: dict
+    tool: Any, args: dict, tool_context: Any, tool_response: dict
 ) -> None:
     """
     Store a tool result in the cache after execution.
@@ -240,7 +240,7 @@ def cache_callback_after_tool(
     """
     tool_name = getattr(tool, "name", str(tool))
     try:
-        cache_key = f"{tool_name}:{sorted(tool_args.items())}"
+        cache_key = f"{tool_name}:{sorted(args.items())}"
         _tool_cache[cache_key] = tool_response
     except TypeError:
         pass  # non-hashable args, skip caching

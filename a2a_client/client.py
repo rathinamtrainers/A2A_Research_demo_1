@@ -99,6 +99,7 @@ class A2ADemoClient:
         """
         rpc_id = str(uuid.uuid4())
         message = {
+            "messageId": str(uuid.uuid4()),
             "role": "user",
             "parts": [{"kind": "text", "text": text}],
         }
@@ -146,6 +147,7 @@ class A2ADemoClient:
             "method": "message/stream",
             "params": {
                 "message": {
+                    "messageId": str(uuid.uuid4()),
                     "role": "user",
                     "parts": [{"kind": "text", "text": text}],
                 }

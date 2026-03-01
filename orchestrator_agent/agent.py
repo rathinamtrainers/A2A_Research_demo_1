@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 
+import httpx
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
 from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
@@ -31,9 +32,31 @@ from orchestrator_agent.tools import (
     get_agent_status,
     list_available_agents,
 )
+from shared.auth import create_bearer_token
 from shared.config import settings
 
 load_dotenv()
+
+# ── Pre-configured HTTP clients with auth headers ────────────────────────────
+# RemoteA2aAgent uses httpx to communicate with remote agents. Agents that
+# require authentication need a client with the appropriate headers pre-set.
+
+_A2A_TIMEOUT = httpx.Timeout(120.0)  # 2 minutes for LLM + tool calls
+
+_code_agent_client = httpx.AsyncClient(
+    headers={"X-API-Key": settings.CODE_AGENT_API_KEY},
+    timeout=_A2A_TIMEOUT,
+)
+
+_research_agent_client = httpx.AsyncClient(
+    headers={"Authorization": f"Bearer {create_bearer_token('orchestrator')}"},
+    timeout=_A2A_TIMEOUT,
+)
+
+_data_agent_client = httpx.AsyncClient(
+    headers={"Authorization": f"Bearer {settings.CODE_AGENT_API_KEY}"},
+    timeout=_A2A_TIMEOUT,
+)
 
 # ── Remote A2A sub-agent references ──────────────────────────────────────────
 # Each RemoteA2aAgent fetches the target's Agent Card at runtime to discover
@@ -55,6 +78,7 @@ research_agent = RemoteA2aAgent(
         "Use for open-ended research questions requiring up-to-date information."
     ),
     agent_card=f"{settings.RESEARCH_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}",
+    httpx_client=_research_agent_client,
 )
 
 code_agent = RemoteA2aAgent(
@@ -64,6 +88,7 @@ code_agent = RemoteA2aAgent(
         "Use for code generation, debugging, or running calculations."
     ),
     agent_card=f"{settings.CODE_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}",
+    httpx_client=_code_agent_client,
 )
 
 data_agent = RemoteA2aAgent(
@@ -73,6 +98,7 @@ data_agent = RemoteA2aAgent(
         "Use for data analysis, CSV generation, and structured output tasks."
     ),
     agent_card=f"{settings.DATA_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}",
+    httpx_client=_data_agent_client,
 )
 
 async_agent = RemoteA2aAgent(
