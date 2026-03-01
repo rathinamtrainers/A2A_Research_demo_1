@@ -125,23 +125,27 @@ is the same — just swap `console.print()` for a metrics client.
 #### `logging_callback_before_tool` (lines 101–119)
 
 ```python
-def logging_callback_before_tool(tool, tool_args, tool_context) -> None:
+def logging_callback_before_tool(tool, args, tool_context) -> None:
     tool_name = getattr(tool, "name", str(tool))
-    console.print(f"⚙  TOOL CALL [{tool_name}] args={tool_args}")
+    console.print(f"⚙  TOOL CALL [{tool_name}] args={args}")
     return None
 ```
 
 **Key points:**
 - Note the different **function signature**: tool callbacks receive `tool`,
-  `tool_args`, `tool_context` — different from model callbacks which receive
+  `args`, `tool_context` — different from model callbacks which receive
   `callback_context`, `llm_request/response`.
+- **Important**: ADK 1.25.1 calls these callbacks with **keyword arguments**:
+  `callback(tool=tool, args=function_args, tool_context=tool_context)`. The
+  parameter must be named `args`, not `tool_args`. Using the wrong name causes
+  `TypeError: got an unexpected keyword argument 'args'`.
 - Logs the tool name and arguments. During demos, this shows exactly what the
   LLM decided to call and with what parameters.
 
 #### `logging_callback_after_tool` (lines 122–142)
 
 ```python
-def logging_callback_after_tool(tool, tool_args, tool_context, tool_response) -> None:
+def logging_callback_after_tool(tool, args, tool_context, tool_response) -> None:
     console.print(f"✓ [{tool_name}] response_keys={list(tool_response.keys())}")
     return None
 ```
@@ -164,8 +168,8 @@ _DANGEROUS_PATTERNS = [
     "__import__", "exec(", "eval(", "open(",
 ]
 
-def guardrail_callback_before_tool(tool, tool_args, tool_context) -> Optional[dict]:
-    code_arg = tool_args.get("code", "")
+def guardrail_callback_before_tool(tool, args, tool_context) -> Optional[dict]:
+    code_arg = args.get("code", "")
     for pattern in _DANGEROUS_PATTERNS:
         if pattern in code_arg:
             return {"error": f"Blocked: '{pattern}' is not allowed."}
@@ -220,8 +224,8 @@ A pair of callbacks that implement a simple tool-result cache:
 #### `cache_callback_before_tool` (lines 193–223)
 
 ```python
-def cache_callback_before_tool(tool, tool_args, tool_context) -> Optional[dict]:
-    cache_key = f"{tool_name}:{sorted(tool_args.items())}"
+def cache_callback_before_tool(tool, args, tool_context) -> Optional[dict]:
+    cache_key = f"{tool_name}:{sorted(args.items())}"
     if cache_key in _tool_cache:
         return _tool_cache[cache_key]  # cache HIT — skip tool execution
     return None  # cache MISS — execute tool normally
@@ -238,8 +242,8 @@ def cache_callback_before_tool(tool, tool_args, tool_context) -> Optional[dict]:
 #### `cache_callback_after_tool` (lines 226–247)
 
 ```python
-def cache_callback_after_tool(tool, tool_args, tool_context, tool_response) -> None:
-    cache_key = f"{tool_name}:{sorted(tool_args.items())}"
+def cache_callback_after_tool(tool, args, tool_context, tool_response) -> None:
+    cache_key = f"{tool_name}:{sorted(args.items())}"
     _tool_cache[cache_key] = tool_response
     return None
 ```
@@ -287,13 +291,13 @@ behaviors (e.g., both guardrail AND cache on `before_tool`), you compose them
 into a single function:
 
 ```python
-def combined_before_tool(tool, tool_args, tool_context):
+def combined_before_tool(tool, args, tool_context):
     # Guardrail first
-    result = guardrail_callback_before_tool(tool, tool_args, tool_context)
+    result = guardrail_callback_before_tool(tool, args, tool_context)
     if result is not None:
         return result  # blocked — don't even check cache
     # Then cache
-    return cache_callback_before_tool(tool, tool_args, tool_context)
+    return cache_callback_before_tool(tool, args, tool_context)
 ```
 
 ---

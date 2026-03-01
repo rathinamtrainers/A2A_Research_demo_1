@@ -1,6 +1,6 @@
 # Speaker Notes — `a2a_client/client.py`
 
-> **File**: `a2a_client/client.py` (286 lines)
+> **File**: `a2a_client/client.py` (288 lines)
 > **Purpose**: Standalone A2A HTTP client proving cross-framework interoperability without any ADK or a2a-sdk client dependency.
 > **Estimated teaching time**: 20–25 minutes
 
@@ -117,12 +117,13 @@ This is analogous to fetching an OpenAPI spec before calling a REST API.
 
 ---
 
-### 4. `send_message()` — Synchronous JSON-RPC (lines 85–127, Features F2, F6)
+### 4. `send_message()` — Synchronous JSON-RPC (lines 85–128, Features F2, F6)
 
 ```python
 async def send_message(self, text: str, task_id: Optional[str] = None) -> dict:
     rpc_id = str(uuid.uuid4())
     message = {
+        "messageId": str(uuid.uuid4()),
         "role": "user",
         "parts": [{"kind": "text", "text": text}],
     }
@@ -147,12 +148,22 @@ async def send_message(self, text: str, task_id: Optional[str] = None) -> dict:
   2. `"id"` — a UUID correlating the request with its response
   3. `"method"` — the A2A operation: `message/send`
   4. `"params"` — the A2A-specific payload containing the message
-- The `message` object follows the A2A Message schema: `role` is `"user"`,
-  and `parts` is an array of content parts. Here we use `"kind": "text"`,
-  but the protocol also supports `"kind": "file"`, `"kind": "data"`, etc.
+- The `message` object follows the A2A Message schema:
+  - `messageId` — a unique UUID identifying this specific message. **This
+    field is required by A2A v0.3 SDK.** Omitting it causes a validation
+    error: `1 validation error for Message — messageId field required`.
+  - `role` is `"user"`, and `parts` is an array of content parts. Here we
+    use `"kind": "text"`, but the protocol also supports `"kind": "file"`,
+    `"kind": "data"`, etc.
 - The optional `task_id` parameter enables **multi-turn conversation**
   (Feature F6). When provided, the server appends this message to an
   existing task/conversation rather than creating a new one.
+
+**Teaching moment — `messageId` vs JSON-RPC `id`:** These are different
+identifiers. The JSON-RPC `id` correlates the RPC request/response pair.
+The `messageId` identifies the message *within the A2A conversation*. A
+single RPC request contains one message, but a conversation (task) can
+span many messages, each with its own `messageId`.
 
 **Teaching moment**: Ask students: "Why JSON-RPC instead of plain REST?"
 Answer: JSON-RPC gives you a uniform interface — one URL, one HTTP method
@@ -160,7 +171,7 @@ Answer: JSON-RPC gives you a uniform interface — one URL, one HTTP method
 routing and makes it easy to multiplex many operations over a single
 endpoint. It also standardises error handling via the `error` field.
 
-**Second teaching moment**: The response handling at lines 125–127:
+**Second teaching moment**: The response handling at lines 126–128:
 
 ```python
 if "error" in result:
@@ -174,25 +185,40 @@ edge cases where the response structure varies between implementations.
 
 ---
 
-### 5. `stream_message()` — SSE Streaming (lines 129–170, Feature F3)
+### 5. `stream_message()` — SSE Streaming (lines 130–172, Feature F3)
 
 ```python
 async def stream_message(self, text: str) -> AsyncIterator[dict]:
-    async with client.stream(
-        "POST",
-        self.base_url + "/",
-        json=payload,
-        headers={**self._headers, "Accept": "text/event-stream"},
-    ) as resp:
-        resp.raise_for_status()
-        async for line in resp.aiter_lines():
-            if line.startswith("data:"):
-                data_str = line[len("data:"):].strip()
-                if data_str and data_str != "[DONE]":
-                    try:
-                        yield json.loads(data_str)
-                    except json.JSONDecodeError:
-                        pass
+    rpc_id = str(uuid.uuid4())
+    payload = {
+        "jsonrpc": "2.0",
+        "id": rpc_id,
+        "method": "message/stream",
+        "params": {
+            "message": {
+                "messageId": str(uuid.uuid4()),
+                "role": "user",
+                "parts": [{"kind": "text", "text": text}],
+            }
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        async with client.stream(
+            "POST",
+            self.base_url + "/",
+            json=payload,
+            headers={**self._headers, "Accept": "text/event-stream"},
+        ) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if line.startswith("data:"):
+                    data_str = line[len("data:"):].strip()
+                    if data_str and data_str != "[DONE]":
+                        try:
+                            yield json.loads(data_str)
+                        except json.JSONDecodeError:
+                            pass
 ```
 
 **Explain to students:**
@@ -200,6 +226,8 @@ async def stream_message(self, text: str) -> AsyncIterator[dict]:
 - This is Feature F3 — SSE Streaming (`message/stream`). The request payload
   is identical to `message/send` except the `method` is `"message/stream"`
   and the `Accept` header is `"text/event-stream"`.
+- Note that `messageId` is included in the message here as well — it is
+  required for all A2A messages regardless of the transport method.
 - **SSE (Server-Sent Events)** is a W3C standard for server-to-client
   streaming over HTTP/1.1. Each event is a line starting with `data:`.
   The stream ends with `data: [DONE]`.
@@ -225,7 +253,7 @@ long responses.
 
 ---
 
-### 6. `get_task()` — Task Polling (lines 172–198, Feature F5)
+### 6. `get_task()` — Task Polling (lines 174–200, Feature F5)
 
 ```python
 async def get_task(self, task_id: str) -> dict:
@@ -259,7 +287,7 @@ notifications?
 
 ---
 
-### 7. `set_push_notification_config()` — Webhooks (lines 200–237, Feature F4)
+### 7. `set_push_notification_config()` — Webhooks (lines 202–239, Feature F4)
 
 ```python
 async def set_push_notification_config(
@@ -299,7 +327,7 @@ webhook — it is part of the protocol, not a separate admin API.
 
 ---
 
-### 8. `run_demo()` — Putting It All Together (lines 242–285, Feature F24)
+### 8. `run_demo()` — Putting It All Together (lines 244–288, Feature F24)
 
 ```python
 async def run_demo() -> None:

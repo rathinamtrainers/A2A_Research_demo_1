@@ -1,7 +1,7 @@
 # Speaker Notes — `orchestrator_agent/agent.py`
 
-> **File**: `orchestrator_agent/agent.py` (129 lines)
-> **Purpose**: Root LLM agent that routes user requests to specialist A2A agents via ADK's `RemoteA2aAgent`.
+> **File**: `orchestrator_agent/agent.py` (155 lines)
+> **Purpose**: Root LLM agent that routes user requests to specialist A2A agents via ADK's `RemoteA2aAgent`, with pre-configured auth for each sub-agent.
 > **Estimated teaching time**: 15–20 minutes
 > **A2A Features covered**: F9 (A2A Routing), F11 (LlmAgent), F13 (Session State), F16 (Callbacks), F19 (Vertex AI Deployment), F22 (OpenTelemetry)
 
@@ -22,9 +22,10 @@ invoke based on the user's message.
 
 ## Section-by-Section Walkthrough
 
-### 1. Module Docstring and Imports (lines 1–35)
+### 1. Module Docstring and Imports (lines 1–37)
 
 ```python
+import httpx
 from google.adk.agents import LlmAgent
 from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
 
@@ -36,6 +37,7 @@ from orchestrator_agent.tools import (
     get_agent_status,
     list_available_agents,
 )
+from shared.auth import create_bearer_token
 from shared.config import settings
 ```
 
@@ -49,6 +51,10 @@ from shared.config import settings
 - `AGENT_CARD_WELL_KNOWN_PATH` is the constant `/.well-known/agent.json` —
   the standard A2A protocol discovery path (like `.well-known/openid-configuration`
   in OAuth).
+- **`httpx`** is imported because the orchestrator creates pre-configured HTTP
+  clients with auth headers for agents that require authentication.
+- **`create_bearer_token`** from `shared.auth` generates signed JWT tokens
+  for the research agent.
 - Notice the clean separation: callbacks come from `orchestrator_agent.callbacks`,
   tools from `orchestrator_agent.tools`, and configuration from `shared.config`.
 
@@ -60,33 +66,80 @@ infrastructure, and maintained by different teams.
 
 ---
 
-### 2. Remote A2A Sub-Agent Declarations (lines 38–85)
+### 2. Pre-configured HTTP Clients with Auth (lines 40–59)
+
+```python
+_A2A_TIMEOUT = httpx.Timeout(120.0)  # 2 minutes for LLM + tool calls
+
+_code_agent_client = httpx.AsyncClient(
+    headers={"X-API-Key": settings.CODE_AGENT_API_KEY},
+    timeout=_A2A_TIMEOUT,
+)
+
+_research_agent_client = httpx.AsyncClient(
+    headers={"Authorization": f"Bearer {create_bearer_token('orchestrator')}"},
+    timeout=_A2A_TIMEOUT,
+)
+
+_data_agent_client = httpx.AsyncClient(
+    headers={"Authorization": f"Bearer {settings.CODE_AGENT_API_KEY}"},
+    timeout=_A2A_TIMEOUT,
+)
+```
+
+**Explain to students:**
+
+- `RemoteA2aAgent` uses httpx internally for all HTTP communication. By
+  default it creates its own client with no auth headers.
+- Agents that require authentication (code, research, data) need a custom
+  `httpx.AsyncClient` with the appropriate headers **pre-set**.
+- **120-second timeout**: The default httpx timeout is 5 seconds, which is
+  too short for LLM calls that involve Google Search + Gemini inference.
+  Research queries routinely take 10–20 seconds.
+- Each client is configured for its agent's auth scheme:
+  - Code agent: `X-API-Key` header
+  - Research agent: `Bearer` JWT token signed with HMAC-SHA256
+  - Data agent: `Bearer` demo token (OAuth 2.0 in production)
+- Weather and async agents need no auth, so they use the default client.
+
+**Teaching moment — why not set auth per-request?** `RemoteA2aAgent` doesn't
+expose request-level hooks. The `httpx_client` parameter is the only way to
+inject auth headers. This is a clean pattern: configure once at startup, every
+request inherits the headers automatically.
+
+---
+
+### 3. Remote A2A Sub-Agent Declarations (lines 61–111)
 
 ```python
 weather_agent = RemoteA2aAgent(
     name="weather_agent",
-    description=(
-        "Handles weather queries for any city. "
-        "Use for questions like 'What is the weather in Paris?'"
-    ),
+    description="Handles weather queries for any city...",
     agent_card=f"{settings.WEATHER_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}",
+)
+
+code_agent = RemoteA2aAgent(
+    name="code_agent",
+    description="Executes Python code in a sandboxed environment...",
+    agent_card=f"{settings.CODE_AGENT_URL}{AGENT_CARD_WELL_KNOWN_PATH}",
+    httpx_client=_code_agent_client,  # auth headers pre-set
 )
 ```
 
 Five instances are declared, one per specialist:
 
-| Variable | Settings URL | Purpose |
-|----------|-------------|---------|
-| `weather_agent` | `WEATHER_AGENT_URL` | Real-time weather lookup |
-| `research_agent` | `RESEARCH_AGENT_URL` | Google Search grounded research |
-| `code_agent` | `CODE_AGENT_URL` | Sandboxed Python execution |
-| `data_agent` | `DATA_AGENT_URL` | CSV/JSON data processing and Artifacts |
-| `async_agent` | `ASYNC_AGENT_URL` | Long-running tasks with push notifications |
+| Variable | Settings URL | Auth | httpx_client |
+|----------|-------------|------|--------------|
+| `weather_agent` | `WEATHER_AGENT_URL` | None | default |
+| `research_agent` | `RESEARCH_AGENT_URL` | Bearer JWT | `_research_agent_client` |
+| `code_agent` | `CODE_AGENT_URL` | API Key | `_code_agent_client` |
+| `data_agent` | `DATA_AGENT_URL` | Bearer token | `_data_agent_client` |
+| `async_agent` | `ASYNC_AGENT_URL` | None | default |
 
 **Explain to students:**
 
-- Each `RemoteA2aAgent` takes three arguments: `name`, `description`, and
-  `agent_card` (the full URL to the agent's card).
+- Each `RemoteA2aAgent` takes `name`, `description`, `agent_card`, and
+  optionally `httpx_client` (for auth).
 - The `description` is critical — it is what the LLM reads when deciding which
   sub-agent to route to. Write it as if you are explaining the agent's
   capability to a colleague. Vague descriptions lead to poor routing.
@@ -118,7 +171,7 @@ to hard-code the capabilities of its sub-agents. It reads them from the card.
 
 ---
 
-### 3. System Instruction (lines 87–107)
+### 4. System Instruction (lines 115–133)
 
 ```python
 _SYSTEM_INSTRUCTION = """
@@ -165,7 +218,7 @@ Production systems often add a confidence threshold or a fallback.
 
 ---
 
-### 4. Root Agent Assembly (lines 109–128)
+### 5. Root Agent Assembly (lines 135–155)
 
 ```python
 root_agent = LlmAgent(
