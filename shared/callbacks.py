@@ -49,7 +49,7 @@ def logging_callback_before_model(callback_context: Any, llm_request: Any) -> No
     agent_name = getattr(callback_context, "agent_name", "unknown")
     console.print(
         Panel(
-            f"[bold cyan]→ MODEL CALL[/bold cyan]\n"
+            f"[bold cyan]>> MODEL CALL[/bold cyan]\n"
             f"  Agent : {agent_name}\n"
             f"  Messages: {len(getattr(llm_request, 'contents', []))}",
             title="[dim]before_model_callback[/dim]",
@@ -114,7 +114,7 @@ def logging_callback_before_tool(
     """
     tool_name = getattr(tool, "name", str(tool))
     console.print(
-        f"[bold yellow]⚙  TOOL CALL[/bold yellow] [{tool_name}] args={args}"
+        f"[bold yellow]>> TOOL CALL[/bold yellow] [{tool_name}] args={args}"
     )
     return None
 
@@ -136,7 +136,7 @@ def logging_callback_after_tool(
     """
     tool_name = getattr(tool, "name", str(tool))
     console.print(
-        f"[dim]✓ after_tool_callback[/dim] [{tool_name}] "
+        f"[dim]OK after_tool_callback[/dim] [{tool_name}] "
         f"response_keys={list(tool_response.keys()) if isinstance(tool_response, dict) else '?'}"
     )
     return None
@@ -179,7 +179,7 @@ def guardrail_callback_before_tool(
     for pattern in _DANGEROUS_PATTERNS:
         if pattern in code_arg:
             console.print(
-                f"[bold red]🛡  GUARDRAIL BLOCKED[/bold red] "
+                f"[bold red]!! GUARDRAIL BLOCKED[/bold red] "
                 f"tool={getattr(tool, 'name', '?')} pattern='{pattern}'"
             )
             return {
@@ -216,7 +216,7 @@ def cache_callback_before_tool(
 
     if cache_key in _tool_cache:
         console.print(
-            f"[bold green]⚡ CACHE HIT[/bold green] [{tool_name}]"
+            f"[bold green]** CACHE HIT[/bold green] [{tool_name}]"
         )
         return _tool_cache[cache_key]
 
