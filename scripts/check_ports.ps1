@@ -19,8 +19,8 @@ Write-Host "=== A2A Demo: Port Status ==="
 foreach ($port in $ports.Keys | Sort-Object) {
     $conn = netstat -ano | Select-String ":$port " | Select-String "LISTENING"
     if ($conn) {
-        $pid = ($conn.ToString().Trim() -split '\s+')[-1]
-        Write-Host "  [RUNNING] :$port  $($ports[$port])  (PID $pid)" -ForegroundColor Green
+        $procId = ($conn.ToString().Trim() -split '\s+')[-1]
+        Write-Host "  [RUNNING] :$port  $($ports[$port])  (PID $procId)" -ForegroundColor Green
     } else {
         Write-Host "  [STOPPED] :$port  $($ports[$port])" -ForegroundColor Red
     }

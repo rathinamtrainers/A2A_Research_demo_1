@@ -11,12 +11,12 @@ $ports = @{8001="weather_agent"; 8002="research_agent"; 8003="code_agent"; 8004=
 foreach ($port in $ports.Keys | Sort-Object) {
     $conn = netstat -ano | Select-String ":$port " | Select-String "LISTENING"
     if ($conn) {
-        $pid = ($conn.ToString().Trim() -split '\s+')[-1]
+        $procId = ($conn.ToString().Trim() -split '\s+')[-1]
         try {
-            taskkill /PID $pid /F | Out-Null
-            Write-Host "  [OK] Stopped :$port $($ports[$port]) (PID $pid)" -ForegroundColor Green
+            taskkill /PID $procId /F | Out-Null
+            Write-Host "  [OK] Stopped :$port $($ports[$port]) (PID $procId)" -ForegroundColor Green
         } catch {
-            Write-Host "  [!!] Failed to stop :$port (PID $pid): $_" -ForegroundColor Red
+            Write-Host "  [!!] Failed to stop :$port (PID $procId): $_" -ForegroundColor Red
         }
     } else {
         Write-Host "  [--] :$port $($ports[$port]) was not running" -ForegroundColor Gray
