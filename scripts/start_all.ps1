@@ -33,13 +33,13 @@ function Start-Agent {
     param (
         [string]$Name,
         [string]$Exe,
-        [string]$Args,
+        [string]$Arguments,
         [string]$Log
     )
     Write-Host "  Starting $Name..." -NoNewline
     Start-Process `
         -FilePath $Exe `
-        -ArgumentList $Args `
+        -ArgumentList $Arguments `
         -RedirectStandardOutput $Log `
         -RedirectStandardError "$Log.err" `
         -NoNewWindow
