@@ -10,12 +10,12 @@
 
 ## 1. One-Time Setup
 
-```bash
+```powershell
 # Create virtual environment
 python -m venv .venv
 
 # Create .env from example (replace project ID if needed)
-cp .env.example .env
+Copy-Item .env.example .env
 ```
 
 Edit `.env` and confirm these values:
@@ -26,69 +26,76 @@ GOOGLE_CLOUD_LOCATION=us-central1
 ```
 
 > **Optional:** Add `OPENWEATHERMAP_API_KEY` for live weather data.
-> Without it, weather queries return mock/cached results.
+> Without it, weather queries will fail.
 
 Install dependencies:
-```bash
-.venv/Scripts/pip install -r requirements.txt   # Windows
-# .venv/bin/pip install -r requirements.txt     # macOS/Linux
+```powershell
+.venv\Scripts\pip install -r requirements.txt
 ```
 
 ---
 
-## 2. Start All Agents
+## 2. Ensure Ports Are Free
 
-Run each command in a separate terminal (or use `&` to background them).
-Always run from the project root with `PYTHONUTF8=1` to avoid Windows encoding errors.
+Before starting, check and clear all required ports:
 
-```bash
-cd /d/tmp/A2A_Research_demo_1
-set -a && source .env && set +a
-export PYTHONPATH=$(pwd) PYTHONUTF8=1
+```powershell
+$ports = @{8001="weather_agent"; 8002="research_agent"; 8003="code_agent"; 8004="data_agent"; 8005="async_agent"; 9000="webhook_server"; 8080="orchestrator"}
 
-# Agent servers
-.venv/Scripts/uvicorn weather_agent.agent:app  --host 0.0.0.0 --port 8001 > logs/weather_agent.log 2>&1 &
-.venv/Scripts/uvicorn research_agent.agent:app --host 0.0.0.0 --port 8002 > logs/research_agent.log 2>&1 &
-.venv/Scripts/uvicorn code_agent.agent:app     --host 0.0.0.0 --port 8003 > logs/code_agent.log 2>&1 &
-.venv/Scripts/uvicorn data_agent.agent:app     --host 0.0.0.0 --port 8004 > logs/data_agent.log 2>&1 &
-.venv/Scripts/uvicorn async_agent.agent:app    --host 0.0.0.0 --port 8005 > logs/async_agent.log 2>&1 &
-.venv/Scripts/uvicorn webhook_server.main:app  --host 0.0.0.0 --port 9000 > logs/webhook_server.log 2>&1 &
-
-# Orchestrator Dev UI (port 8080 avoids conflicts with other local services)
-.venv/Scripts/adk web . --port 8080 > logs/orchestrator.log 2>&1 &
-```
-
-Wait ~5 seconds, then verify all services are up:
-```bash
-for port in 8001 8002 8003 8004 8005 9000 8080; do
-  code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$port/ 2>/dev/null)
-  echo ":$port → $code"
-done
-```
-
-Expected output (non-200 codes are normal — agents require auth or JSON-RPC):
-```
-:8001 → 405
-:8002 → 401
-:8003 → 403
-:8004 → 401
-:8005 → 405
-:9000 → 200
-:8080 → 307
+foreach ($port in $ports.Keys | Sort-Object) {
+    $conn = netstat -ano | Select-String ":$port " | Select-String "LISTENING"
+    if ($conn) {
+        $pid = ($conn.ToString().Trim() -split '\s+')[-1]
+        taskkill /PID $pid /F | Out-Null
+        Write-Host "Killed :$port (PID $pid)"
+    } else {
+        Write-Host ":$port is free"
+    }
+}
 ```
 
 ---
 
-## 3. Open the Dev UI
+## 3. Start All Agents
+
+Run from the project root:
+
+```powershell
+.\scripts\start_all.ps1
+```
+
+This script:
+- Loads `.env` automatically
+- Sets `PYTHONUTF8=1` (prevents Windows encoding errors)
+- Starts all 7 services in the background
+- Runs a health check after 5 seconds
+
+**Services started:**
+
+| Port | Service |
+|------|---------|
+| 8001 | weather_agent |
+| 8002 | research_agent |
+| 8003 | code_agent |
+| 8004 | data_agent |
+| 8005 | async_agent |
+| 9000 | webhook_server |
+| 8080 | orchestrator (ADK Dev UI) |
+
+Logs are written to the `logs\` directory.
+
+---
+
+## 4. Open the Dev UI
 
 Navigate to **http://localhost:8080** in your browser.
 
 - Select **`orchestrator_agent`** from the dropdown
-- Start a **New Session** (top right)
+- Click **+ New Session** (top right)
 
 ---
 
-## 4. Manual Tests
+## 5. Manual Tests
 
 ### Test 1 — Weather (routes to `weather_agent` :8001)
 ```
@@ -138,7 +145,7 @@ Expected: Task ID returned immediately; webhook notification delivered to `:9000
 
 ---
 
-## 5. Inspect Traces
+## 6. Inspect Traces
 
 In the Dev UI left panel, click any **Invocation** to expand it.
 The **Trace** tab shows:
@@ -151,27 +158,30 @@ The **State** tab shows session memory across turns.
 
 ---
 
-## 6. Verify Agent Cards (curl)
+## 7. Verify Agent Cards
 
 Each agent advertises its capabilities at `/.well-known/agent.json`:
 
-```bash
-curl http://localhost:8001/.well-known/agent.json | python -m json.tool
-curl http://localhost:8002/.well-known/agent.json | python -m json.tool
-curl http://localhost:8003/.well-known/agent.json | python -m json.tool
-curl http://localhost:8004/.well-known/agent.json | python -m json.tool
-curl http://localhost:8005/.well-known/agent.json | python -m json.tool
+```powershell
+foreach ($port in 8001,8002,8003,8004,8005) {
+    Write-Host "--- :$port ---"
+    Invoke-RestMethod "http://localhost:$port/.well-known/agent.json" | ConvertTo-Json
+}
 ```
 
 ---
 
-## 7. Stop the App
+## 8. Stop the App
 
-```bash
-for port in 8001 8002 8003 8004 8005 9000 8080; do
-  pid=$(netstat -ano | grep ":${port} " | grep LISTENING | awk '{print $5}' | head -1)
-  [ -n "$pid" ] && cmd //c "taskkill /PID $pid /F" && echo "Stopped :$port"
-done
+```powershell
+.\scripts\stop_all.ps1
+```
+
+Or manually kill a specific port:
+```powershell
+$conn = netstat -ano | Select-String ":8080 " | Select-String "LISTENING"
+$pid = ($conn.ToString().Trim() -split '\s+')[-1]
+taskkill /PID $pid /F
 ```
 
 ---
@@ -180,8 +190,8 @@ done
 
 | Issue | Cause | Fix |
 |---|---|---|
-| `charmap codec can't encode character` | Windows console encoding | Always export `PYTHONUTF8=1` before starting |
-| `No agents found in current folder` | Wrong path passed to `adk web` | Run `adk web .` from project root, not `adk web ./orchestrator_agent/` |
-| `[Errno 10048] only one usage of each socket address` | Old process still on port | Find PID with `netstat -ano` and kill with `taskkill /PID <pid> /F` |
+| `charmap codec can't encode character` | Windows console encoding | `start_all.ps1` sets `PYTHONUTF8=1` automatically |
+| `No agents found in current folder` | Wrong path passed to `adk web` | Scripts use `adk web .` from project root |
+| Port already in use | Previous run not stopped cleanly | Run step 2 (Ensure Ports Are Free) before starting |
 | 502 errors in orchestrator log | OpenTelemetry can't reach GCP metrics endpoint | Harmless — background telemetry only |
 | Weather agent returns error | Missing API key | Add `OPENWEATHERMAP_API_KEY` to `.env` |
