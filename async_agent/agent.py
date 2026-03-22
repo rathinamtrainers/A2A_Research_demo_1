@@ -176,8 +176,11 @@ async def _handle_message_send(params: dict) -> dict:
         A Task dict with ``id`` and initial ``status = "submitted"``.
     """
     task_id = str(uuid.uuid4())
+    context_id = str(uuid.uuid4())
     task = {
         "id": task_id,
+        "contextId": context_id,
+        "kind": "task",
         "status": {"state": "submitted"},
         "history": [params.get("message", {})],
         "artifacts": [],
@@ -207,8 +210,11 @@ async def _handle_message_stream(
         A ``StreamingResponse`` that emits SSE ``data:`` lines.
     """
     task_id = str(uuid.uuid4())
+    context_id = str(uuid.uuid4())
     task = {
         "id": task_id,
+        "contextId": context_id,
+        "kind": "task",
         "status": {"state": "submitted"},
         "history": [params.get("message", {})],
         "artifacts": [],

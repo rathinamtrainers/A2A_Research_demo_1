@@ -22,7 +22,9 @@ import os
 import httpx
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
-from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
+from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
+
+AGENT_CARD_WELL_KNOWN_PATH = "/.well-known/agent.json"
 
 from orchestrator_agent.callbacks import (
     orchestrator_after_model,
