@@ -84,6 +84,11 @@ This script:
 
 Logs are written to the `logs\` directory.
 
+To check port status at any time:
+```powershell
+.\scripts\check_ports.ps1
+```
+
 ---
 
 ## 4. Open the Dev UI
